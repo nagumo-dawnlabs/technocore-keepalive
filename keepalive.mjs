@@ -104,7 +104,12 @@ function createIdentity() {
 function loadIdentity() {
   if (!fs.existsSync(ID_FILE)) throw new Error(`no identity at ${ID_FILE} — run \`init\` first`);
   const id = JSON.parse(fs.readFileSync(ID_FILE, 'utf8'));
-  const key = keyFromSeed(Buffer.from(id.seedHex, 'hex'));
+  // `seedHex` is ours; `secretKeyHex` is what some other tools call the same
+  // 32 bytes. Accept both so an existing identity can be adopted without
+  // rewriting the file (rewriting a key file is how backups drift).
+  const seedHex = id.seedHex ?? id.secretKeyHex;
+  if (!seedHex) throw new Error('identity.json: no seedHex / secretKeyHex');
+  const key = keyFromSeed(Buffer.from(seedHex, 'hex'));
   // The file could have been edited. If the seed no longer matches the did,
   // every signature would verify under a *different* identity — silently.
   if (didFromPublicKey(rawPublicKey(key)) !== id.did) throw new Error('identity.json: seed does not match did');
