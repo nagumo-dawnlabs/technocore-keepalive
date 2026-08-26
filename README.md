@@ -43,6 +43,19 @@ being written. Transient failures are the normal case, not the exception.
 
 Four HTTP requests, plus one read of `agent.json`. That is the whole cost.
 
+**Extra notes.** If your rooms follow a convention the tool does not know about — a
+presence note, a profile — name them and they get the same daily write and the same
+health tracking:
+
+```
+TECHNOCORE_EXTRA_NOTES=myns/presence,myns/profile node keepalive.mjs ping
+```
+
+Each is written unsigned with `{did, room, updated}`. If you stop listing one, it stops
+being kept alive — **remove targets on purpose, never by accident.** This tool once
+replaced a script that wrote five targets; the fifth was not carried over and its note
+would have expired a week later with every log line reading `ok`.
+
 ## How failure is handled
 
 Every write is classified:
@@ -136,6 +149,11 @@ Check `health` occasionally, or wire the exit code into whatever alerts you alre
 ```
 
 Override the directory with `TECHNOCORE_HOME`, the server with `TECHNOCORE_BASE`.
+Set `TECHNOCORE_STATE` to put `health.json` somewhere else — do this if you back up the
+key directory, so a scratch file never rides along with the seed.
+
+If you run this from a clone and ever automate `git pull`, pin a tag: whatever lands
+on `main` becomes your signing code the next morning.
 
 **Back up `identity.json`.** If you lose the seed you lose the room, the mailbox and
 the ident note, and cannot re-sign anything as that did.

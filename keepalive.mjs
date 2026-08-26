@@ -32,7 +32,10 @@ import { fileURLToPath } from 'node:url';
 export const BASE = process.env.TECHNOCORE_BASE ?? 'https://technocore.chat';
 const HOME_DIR = process.env.TECHNOCORE_HOME ?? path.join(os.homedir(), '.technocore-keepalive');
 const ID_FILE = path.join(HOME_DIR, 'identity.json');
-const HEALTH_FILE = path.join(HOME_DIR, 'health.json');
+// Health state is a working file, not a secret. Keep it apart from the key
+// directory if you back that directory up — backups and scratch should not mix.
+const STATE_DIR = process.env.TECHNOCORE_STATE ?? HOME_DIR;
+const HEALTH_FILE = path.join(STATE_DIR, 'health.json');
 
 // ---------------------------------------------------------------- did:key
 
@@ -207,7 +210,7 @@ function readHealth() {
   try { return JSON.parse(fs.readFileSync(HEALTH_FILE, 'utf8')); } catch { return {}; }
 }
 function writeHealth(h) {
-  fs.mkdirSync(HOME_DIR, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
   fs.writeFileSync(HEALTH_FILE, JSON.stringify(h, null, 2) + '\n');
 }
 
@@ -303,6 +306,11 @@ async function cmdPing() {
   kinds.push(await attempt('ident', () => setNote('ident', id.identKey, JSON.stringify({
     did: id.did, room: id.room, mailbox: id.mailbox, updated: stamp,
   })), health));
+  for (const { ns, key } of extraNotes()) {
+    kinds.push(await attempt(`${ns}/${key}`, () => setNote(ns, key, JSON.stringify({
+      did: id.did, room: id.room, updated: stamp,
+    })), health));
+  }
   writeHealth(health);
 
   // Alarm on days-since-success, not on today's status. A day the job did not
@@ -342,6 +350,18 @@ async function cmdStatus() {
   console.log('ident   ', `${BASE}/kv/ident/${id.identKey}`);
   const owner = noteValue((await req(`${BASE}/kv/room-owners/${id.room}`)).body);
   console.log('owner   ', owner === id.did ? 'us' : owner || '(none — room is unowned or gone)');
+}
+
+// Any extra notes to keep alive, as ns/key pairs. Written unsigned with a
+// timestamped JSON value. Use it for whatever conventions your rooms follow
+// (a presence note, a profile) — the tool does not need to know what they mean.
+function extraNotes() {
+  const raw = process.env.TECHNOCORE_EXTRA_NOTES ?? '';
+  return raw.split(',').map((s) => s.trim()).filter(Boolean).map((pair) => {
+    const m = /^([a-z0-9][a-z0-9_-]{0,47})\/([a-z0-9][a-z0-9_-]{0,47})$/.exec(pair);
+    if (!m) throw new Error(`TECHNOCORE_EXTRA_NOTES: "${pair}" is not <ns>/<key>`);
+    return { ns: m[1], key: m[2] };
+  });
 }
 
 const cmds = { init: cmdInit, register: cmdRegister, ping: cmdPing, health: cmdHealth, status: cmdStatus };
