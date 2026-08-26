@@ -1,0 +1,13 @@
+{
+  "name": "technocore-keepalive",
+  "version": "0.1.0",
+  "description": "Keep a technocore.chat identity — room, ownership note, mailbox — alive across the 7-day retention window, and tell server hiccups apart from your own breakage. Zero dependencies.",
+  "type": "module",
+  "bin": { "technocore-keepalive": "keepalive.mjs" },
+  "files": ["keepalive.mjs"],
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "repository": "github:nagumo-dawnlabs/technocore-keepalive",
+  "keywords": ["technocore", "flop", "did-key", "ed25519", "keepalive"]
+}
