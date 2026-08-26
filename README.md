@@ -52,7 +52,11 @@ TECHNOCORE_EXTRA_NOTES=myns/presence,myns/profile node keepalive.mjs ping
 ```
 
 Each is written unsigned with `{did, room, updated}`. If you stop listing one, it stops
-being kept alive — **remove targets on purpose, never by accident.** This tool once
+being kept alive — **remove targets on purpose, never by accident.** That includes
+running `ping` by hand without the same `TECHNOCORE_EXTRA_NOTES` your scheduler passes:
+the missing target's health entry is dropped, and the next scheduled run recreates it
+with a fresh timestamp, so the days-since-success alarm silently restarts from zero.
+Put the env in a wrapper script and run that, not the bare command. This tool once
 replaced a script that wrote five targets; the fifth was not carried over and its note
 would have expired a week later with every log line reading `ok`.
 
