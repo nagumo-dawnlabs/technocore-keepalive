@@ -96,3 +96,27 @@ test('staleness: measures days since last success, not failure count', () => {
   // Never-succeeded must not read as "just succeeded"
   assert.equal(s.ident.days, null);
 });
+
+// ---- fossil state -----------------------------------------------------------
+
+import { pruneHealth } from '../keepalive.mjs';
+
+// A target that is renamed or removed leaves its old entry behind. That entry is
+// evaluated like any other, so once it is five days old every run exits 1 with
+// every real target healthy. Found on 2026-08-27 after presence → ns/presence.
+test('pruneHealth: drops entries for targets no longer written, reports them', () => {
+  const health = {
+    room: { lastOkAt: '2026-08-26T19:31:09Z' },
+    presence: { lastOkAt: '2026-08-26T19:18:17Z' },          // old name, never written again
+    'ns/presence': { lastOkAt: '2026-08-26T19:31:11Z' },     // new name
+  };
+  const dropped = pruneHealth(health, ['room', 'ns/presence']);
+  assert.deepEqual(dropped, ['presence']);
+  assert.deepEqual(Object.keys(health).sort(), ['ns/presence', 'room']);
+});
+
+test('pruneHealth: keeps everything when the target set is unchanged', () => {
+  const health = { room: {}, owner: {} };
+  assert.deepEqual(pruneHealth(health, ['room', 'owner']), []);
+  assert.equal(Object.keys(health).length, 2);
+});

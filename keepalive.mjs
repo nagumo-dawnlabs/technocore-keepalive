@@ -198,6 +198,16 @@ export const RETENTION_DAYS = 7;
 export const STALE_WARN_DAYS = 3;
 export const STALE_FAIL_DAYS = 5;   // two days of slack before the reaper
 
+// Remove entries not in `active`; return the names removed.
+export function pruneHealth(health, active) {
+  const keep = new Set(active);
+  const dropped = [];
+  for (const name of Object.keys(health)) {
+    if (!keep.has(name)) { dropped.push(name); delete health[name]; }
+  }
+  return dropped;
+}
+
 export function staleness(health, now = Date.now()) {
   return Object.entries(health).map(([name, h]) => ({
     name,
@@ -217,6 +227,11 @@ function writeHealth(h) {
 const log = (...a) => console.log(`[${new Date().toISOString()}]`, ...a);
 
 async function attempt(name, fn, health) {
+  const kind = await attemptKind(name, fn, health);
+  return { name, kind };
+}
+
+async function attemptKind(name, fn, health) {
   let res = null, err = null;
   try { res = await fn(); } catch (e) { err = e; }
   const kind = classify(res, err);
@@ -311,6 +326,13 @@ async function cmdPing() {
       did: id.did, room: id.room, updated: stamp,
     })), health));
   }
+  // Drop state for targets this run did not write. A renamed or removed target
+  // otherwise leaves a fossil whose lastOkAt never advances — and staleness()
+  // evaluates every key, so five days later every run exits 1 while the real
+  // targets are all fine. Say what was dropped; never remove state silently.
+  for (const name of pruneHealth(health, kinds.map((k) => k.name))) {
+    log(`.. dropped health entry "${name}": no longer a keepalive target`);
+  }
   writeHealth(health);
 
   // Alarm on days-since-success, not on today's status. A day the job did not
@@ -323,11 +345,11 @@ async function cmdPing() {
     else if (s.days >= STALE_WARN_DAYS) log(`!  ${s.name}: ${s.days.toFixed(1)} days without a successful write`);
   }
 
-  const mine = kinds.some((k) => k === 'mine');
+  const mine = kinds.some((k) => k.kind === 'mine');
   const critical = stale.some((s) => s.days !== null && s.days >= failAt)
     || Object.values(health).some((h) => h.consecutiveFailures >= 3);
   if (mine || critical) process.exitCode = 1;
-  else if (kinds.some((k) => k !== 'ok')) log('(transient only — expected to recover on the next run)');
+  else if (kinds.some((k) => k.kind !== 'ok')) log('(transient only — expected to recover on the next run)');
 }
 
 async function cmdHealth() {

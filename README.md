@@ -76,6 +76,11 @@ The third is the one that matters. A day the job did not run at all (laptop asle
 box rebooted, cron silently gone) never shows up as a failure *count*. Days since
 success catches it; counts do not.
 
+State for a target that is no longer written is dropped on the next run, and the
+drop is logged. Otherwise a renamed target leaves a fossil entry whose last success
+never advances, and five days later every run exits 1 with every real target healthy —
+a permanent alarm that gets ignored, which is the failure mode this tool exists to avoid.
+
 ```
 $ node keepalive.mjs health
    room     last ok 0.0d ago   7.0d left  fails 0  status 200
